@@ -21,9 +21,8 @@ include("parseexpr.jl")
 # buildrefsets(:(x[i=1:3,[:red,:blue]],k=S; i+k <= 6))
 # Used internally in macros to build JuMPContainers and constraints. Returns
 #       refcall:  Expr to reference a particular element, e.g. :(x[i,j,k])
-#       idxvars:  Index names used in referencing, e.g.g {:i,:j,:k}
-#       idxsets:  Index sets for indexing, e.g. {1:3, [:red,:blue], S}
-#       idxpairs: Vector of IndexPair
+#       idxvars:  Index names used in referencing, e.g.g []:i,:j,:k]
+#       idxsets:  Index sets for indexing, e.g. [1:3, [:red,:blue], S]
 #       condition: Expr containing any condition present for indexing
 # Note in particular that it does not actually evaluate the condition, and so
 # it returns just the cartesian product of possible indices.
@@ -31,7 +30,6 @@ function buildrefsets(expr::Expr, cname)
     c = copy(expr)
     idxvars = Any[]
     idxsets = Any[]
-    idxpairs = IndexPair[]
     # Creating an indexed set of refs
     refcall = Expr(:ref, cname)
     if isexpr(c, :typed_vcat) || isexpr(c, :ref)
@@ -53,22 +51,20 @@ function buildrefsets(expr::Expr, cname)
             parse_done, idxvar, _idxset = tryParseIdxSet(s::Expr)
             if parse_done
                 idxset = esc(_idxset)
-                push!(idxpairs, IndexPair(idxvar, _idxset))
             end
         end
         if !parse_done # No index variable specified
             idxvar = gensym()
             idxset = esc(s)
-            push!(idxpairs, IndexPair(nothing,s))
         end
         push!(idxvars, idxvar)
         push!(idxsets, idxset)
         push!(refcall.args, esc(idxvar))
     end
-    return refcall, idxvars, idxsets, idxpairs, condition
+    return refcall, idxvars, idxsets, condition
 end
 
-buildrefsets(c, cname)  = (cname, Any[], Any[], IndexPair[], :())
+buildrefsets(c, cname)  = (cname, Any[], Any[], :())
 buildrefsets(c) = buildrefsets(c, getname(c))
 
 ###############################################################################
