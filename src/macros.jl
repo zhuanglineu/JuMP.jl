@@ -19,7 +19,7 @@ include("parseexpr.jl")
 # Unexported. Takes as input an object representing a name, associated index
 # sets, and conditions on those sets, for example
 # buildrefsets(:(x[i=1:3,[:red,:blue]],k=S; i+k <= 6))
-# Used internally in macros to build JuMPContainers and constraints. Returns
+# Used internally in macros to build containers and constraints. Returns
 #       refcall:  Expr to reference a particular element, e.g. :(x[i,j,k])
 #       idxvars:  Index names used in referencing, e.g.g []:i,:j,:k]
 #       idxsets:  Index sets for indexing, e.g. [1:3, [:red,:blue], S]
@@ -79,10 +79,11 @@ buildrefsets(c) = buildrefsets(c, getname(c))
 #                  If none, pass :().
 #       idxvars: As defined for buildrefsets
 #       idxsets: As defined for buildrefsets
-#       idxpairs: As defined for buildrefsets
 #       sym: A symbol or expression containing the element type of the
 #            resulting container, e.g. :AffExpr or :Variable
-function getloopedcode(varname, code, condition, idxvars, idxsets, idxpairs, sym; lowertri=false)
+#       requestedcontainer: `:Auto`, `:Array`, `:AxisArray`, `:Dict` passed
+#                           through to generatecontainer()
+function getloopedcode(varname, code, condition, idxvars, idxsets, sym, requestedcontainer::Symbol; lowertri=false)
 
     # if we don't have indexing, just return to avoid allocating stuff
     if isempty(idxsets)
@@ -94,7 +95,6 @@ function getloopedcode(varname, code, condition, idxvars, idxsets, idxpairs, sym
     if lowertri
         @assert !hascond
         @assert length(idxvars)  == 2
-        @assert length(idxpairs) == 2
         @assert !hasdependentsets(idxvars, idxsets)
 
         i, j = esc(idxvars[1]), esc(idxvars[2])
@@ -132,13 +132,15 @@ function getloopedcode(varname, code, condition, idxvars, idxsets, idxpairs, sym
             end
         end
     end
-    if hascond || hasdependentsets(idxvars,idxsets)
-        # force a JuMPDict
-        N = length(idxsets)
-        mac = :($varname = JuMPDict{$(sym),$N}())
-    else
-        mac = gendict(varname, sym, idxsets...)
+    if hascond
+        if requestedcontainer == :Auto
+            requestedcontainer = :Dict
+        elseif requestedcontainer == :Array || requestedcontainer == :AxisArray
+            return :(error("Requested container type is incompatible with conditional indexing. Use :Dict or :Auto instead."))
+        end
     end
+    mac = :($varname = $(generatecontainer(sym, idxvars, idxsets, requestedcontainer)))
+
     return quote
         $mac
         $code
@@ -340,7 +342,7 @@ macro constraint(args...)
 
     # Strategy: build up the code for non-macro addconstraint, and if needed
     # we will wrap in loops to assign to the ConstraintRefs
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(c, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(c, variable)
     # JuMP accepts constraint syntax of the form @constraint(m, foo in bar).
     # This will be rewritten to a call to constructconstraint!(foo, bar). To
     # extend JuMP to accept set-based constraints of this form, it is necessary
@@ -431,7 +433,7 @@ macro constraint(args...)
               "       expr1 == expr2\n" * "       lb <= expr <= ub"))
     end
     return assert_validmodel(m, quote
-        $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, :ConstraintRef))
+        $(getloopedcode(variable, code, condition, idxvars, idxsets, :ConstraintRef, :Auto))
         $(if anonvar
             variable
         else
@@ -773,7 +775,7 @@ macro expression(args...)
     variable = gensym()
     escvarname  = anonvar ? variable : esc(getname(c))
 
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(c, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(c, variable)
     newaff, parsecode = parseExprToplevel(x, :q)
     code = quote
         q = 0.0
@@ -789,7 +791,7 @@ macro expression(args...)
         $code
         $(refcall) = $newaff
     end
-    code = getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, :AffExpr)
+    code = getloopedcode(variable, code, condition, idxvars, idxsets, :AffExpr, :Auto)
     if m === nothing # deprecated usage
         return quote
             $code
@@ -1066,7 +1068,7 @@ macro variable(args...)
 
     # We now build the code to generate the variables (and possibly the JuMPDict
     # to contain them)
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(var, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(var, variable)
     clear_dependencies(i) = (isdependent(idxvars,idxsets[i],i) ? () : idxsets[i])
 
     # Code to be used to create each variable of the container.
@@ -1105,7 +1107,7 @@ macro variable(args...)
         end
         return assert_validmodel(m, quote
             $(esc(idxsets[1].args[1].args[2])) == $(esc(idxsets[2].args[1].args[2])) || error("Cannot construct symmetric variables with nonsquare dimensions")
-            $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, vartype; lowertri=symmetric))
+            $(getloopedcode(variable, code, condition, idxvars, idxsets, vartype, :Auto; lowertri=symmetric))
             $(if sdp
                 quote
                     JuMP.addconstraint($m, JuMP._constructconstraint!($variable, JuMP.PSDCone()))
@@ -1115,37 +1117,34 @@ macro variable(args...)
             $(anonvar ? variable : :($escvarname = $variable))
         end)
     else
-        coloncheckcode = Expr(:call,:coloncheck,refcall.args[2:end]...)
-        code = :($coloncheckcode; $code)
         return assert_validmodel(m, quote
-            $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, vartype))
-            isa($variable, JuMPContainer) && pushmeta!($variable, :model, $m)
+            $(getloopedcode(variable, code, condition, idxvars, idxsets, vartype, :Auto))
             !$anonvar && registervar($m, $quotvarname, $variable)
             $(anonvar ? variable : :($escvarname = $variable))
         end)
     end
 end
 
-macro constraintref(var)
-    if isa(var,Symbol)
-        # easy case
-        return esc(:(local $var))
-    else
-        if !isexpr(var,:ref)
-            error("Syntax error: Expected $var to be of form var[...]")
-        end
-
-        varname = var.args[1]
-        idxsets = var.args[2:end]
-        idxpairs = IndexPair[]
-
-        code = quote
-            $(esc(gendict(varname, :ConstraintRef, idxsets...)))
-            nothing
-        end
-        return code
-    end
-end
+# TODO: replace with a general macro that can construct any container type
+# macro constraintref(var)
+#     if isa(var,Symbol)
+#         # easy case
+#         return esc(:(local $var))
+#     else
+#         if !isexpr(var,:ref)
+#             error("Syntax error: Expected $var to be of form var[...]")
+#         end
+#
+#         varname = var.args[1]
+#         idxsets = var.args[2:end]
+#
+#         code = quote
+#             $(esc(gendict(varname, :ConstraintRef, idxsets...)))
+#             nothing
+#         end
+#         return code
+#     end
+# end
 
 macro NLobjective(m, sense, x)
     m = esc(m)
@@ -1180,7 +1179,7 @@ macro NLconstraint(m, x, extra...)
 
     # Strategy: build up the code for non-macro addconstraint, and if needed
     # we will wrap in loops to assign to the ConstraintRefs
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(c, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(c, variable)
     # Build the constraint
     if isexpr(x, :call) # one-sided constraint
         # Simple comparison - move everything to the LHS
@@ -1226,7 +1225,7 @@ macro NLconstraint(m, x, extra...)
               "       expr1 <= expr2\n" * "       expr1 >= expr2\n" *
               "       expr1 == expr2")
     end
-    looped = getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, :(ConstraintRef{Model,NonlinearConstraint}))
+    looped = getloopedcode(variable, code, condition, idxvars, idxsets, :(ConstraintRef{Model,NonlinearConstraint}), :Auto)
     return assert_validmodel(m, quote
         initNLP($m)
         $m.internalModelLoaded = false
@@ -1260,12 +1259,12 @@ macro NLexpression(args...)
     variable = gensym()
     escvarname  = anonvar ? variable : esc(getname(c))
 
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(c, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(c, variable)
     code = quote
         $(refcall) = NonlinearExpression($m, @processNLExpr($m, $(esc(x))))
     end
     return assert_validmodel(m, quote
-        $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, :NonlinearExpression))
+        $(getloopedcode(variable, code, condition, idxvars, idxsets, :NonlinearExpression, :Auto))
         $(anonvar ? variable : :($escvarname = $variable))
     end)
 end
@@ -1286,12 +1285,12 @@ macro NLparameter(m, ex)
     variable = gensym()
     escvarname  = anonvar ? variable : esc(getname(c))
 
-    refcall, idxvars, idxsets, idxpairs, condition = buildrefsets(c, variable)
+    refcall, idxvars, idxsets, condition = buildrefsets(c, variable)
     code = quote
         $(refcall) = newparameter($m, $(esc(x)))
     end
     return assert_validmodel(m, quote
-        $(getloopedcode(variable, code, condition, idxvars, idxsets, idxpairs, :NonlinearParameter))
+        $(getloopedcode(variable, code, condition, idxvars, idxsets, :NonlinearParameter, :Auto))
         $(anonvar ? variable : :($escvarname = $variable))
     end)
 end

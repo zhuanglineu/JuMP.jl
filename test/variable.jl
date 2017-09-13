@@ -177,91 +177,91 @@ using Base.Test
 
 # Slices three-dimensional JuMPContainer x[I,J,K]
 # I,J,K can be singletons, ranges, colons, etc.
-function sliceof(x, I, J, K)
-    y = Array{Variable}(length(I), length(J), length(K))
+# function sliceof(x, I, J, K)
+#     y = Array{Variable}(length(I), length(J), length(K))
+#
+#     ii = 1
+#     jj = 1
+#     kk = 1
+#     for i in I
+#         for j in J
+#             for k in K
+#                 y[ii,jj,kk] = x[i,j,k]
+#                 kk += 1
+#             end
+#             jj += 1
+#             kk = 1
+#         end
+#         ii += 1
+#         jj = 1
+#     end
+#     idx = [length(I)==1, length(J)==1, length(K)==1]
+#     squeeze(y, tuple(find(idx)...))
+# end
 
-    ii = 1
-    jj = 1
-    kk = 1
-    for i in I
-        for j in J
-            for k in K
-                y[ii,jj,kk] = x[i,j,k]
-                kk += 1
-            end
-            jj += 1
-            kk = 1
-        end
-        ii += 1
-        jj = 1
-    end
-    idx = [length(I)==1, length(J)==1, length(K)==1]
-    squeeze(y, tuple(find(idx)...))
-end
+    # @testset "Slices of JuMPArray (#684)" begin
+    #     m = Model()
+    #     @variable(m, x[1:3, 1:4,1:2])
+    #     @variable(m, y[1:3,-1:2,3:4])
+    #     @variable(m, z[1:3,-1:2:4,3:4])
+    #     @variable(m, w[1:3,-1:2,[:red,"blue"]])
+    #
+    #     #@test x[:] == vec(sliceof(x, 1:3, 1:4, 1:2))
+    #     @test x[:,:,:] == sliceof(x, 1:3, 1:4, 1:2)
+    #     @test x[1,:,:] == sliceof(x, 1, 1:4, 1:2)
+    #     @test x[1,:,2] == sliceof(x, 1, 1:4, 2)
+    #     @test_throws BoundsError x[1,:,3]
+    #     @test x[1:2,:,:] == sliceof(x, 1:2, 1:4, 1:2)
+    #     @test x[1:2,:,2] == sliceof(x, 1:2, 1:4, 2)
+    #     @test x[1:2,:,1:2] == sliceof(x, 1:2, 1:4, 1:2)
+    #     @test_throws BoundsError x[1:2,:,1:3]
+    #
+    #     @test y[:] == vec(sliceof(y, 1:3, -1:2, 3:4))
+    #     @test y[:,:,:] == sliceof(y, 1:3, -1:2, 3:4)
+    #     @test y[1,:,:] == sliceof(y, 1, -1:2, 3:4)
+    #     @test y[1,:,4] == sliceof(y, 1, -1:2, 4)
+    #     @test_throws ErrorException y[1,:,5]
+    #     @test y[1:2,:,:] == sliceof(y, 1:2, -1:2, 3:4)
+    #     @test y[1:2,:,4] == sliceof(y, 1:2, -1:2, 4)
+    #     @test y[1:2,:,3:4] == sliceof(y, 1:2, -1:2, 3:4)
+    #     @test_throws BoundsError y[1:2,:,1:3]
+    #
+    #     @test z[:] == vec(sliceof(z, 1:3, -1:2:4, 3:4))
+    #     @test z[:,1,:] == sliceof(z, 1:3, 1, 3:4)
+    #     @test z[1,1,:] == sliceof(z, 1, 1, 3:4)
+    #     @test_throws ErrorException z[:,5,3]
+    #     @test z[1:2,1,:] == sliceof(z, 1:2, 1, 3:4)
+    #     @test z[1:2,1,4] == sliceof(z, 1:2, 1, 4)
+    #     @test z[1:2,1,3:4] == sliceof(z, 1:2, 1, 3:4)
+    #     @test_throws BoundsError z[1:2,1,1:3]
+    #
+    #     @test w[:] == vec(sliceof(w, 1:3, -1:2, [:red,"blue"]))
+    #     @test_throws ErrorException w[:,:,:]
+    #     @test w[1,:,"blue"] == sliceof(w, 1, -1:2, ["blue"])
+    #     @test w[1,:,:red] == sliceof(w, 1, -1:2, [:red])
+    #     @test_throws ErrorException w[1,:,"green"]
+    #     @test w[1:2,:,"blue"] == sliceof(w, 1:2, -1:2, ["blue"])
+    #     @test_throws ErrorException w[1:2,:,[:red,"blue"]]
+    # end
 
-    @testset "Slices of JuMPArray (#684)" begin
-        m = Model()
-        @variable(m, x[1:3, 1:4,1:2])
-        @variable(m, y[1:3,-1:2,3:4])
-        @variable(m, z[1:3,-1:2:4,3:4])
-        @variable(m, w[1:3,-1:2,[:red,"blue"]])
-
-        @test x[:] == vec(sliceof(x, 1:3, 1:4, 1:2))
-        @test x[:,:,:] == sliceof(x, 1:3, 1:4, 1:2)
-        @test x[1,:,:] == sliceof(x, 1, 1:4, 1:2)
-        @test x[1,:,2] == sliceof(x, 1, 1:4, 2)
-        @test_throws BoundsError x[1,:,3]
-        @test x[1:2,:,:] == sliceof(x, 1:2, 1:4, 1:2)
-        @test x[1:2,:,2] == sliceof(x, 1:2, 1:4, 2)
-        @test x[1:2,:,1:2] == sliceof(x, 1:2, 1:4, 1:2)
-        @test_throws BoundsError x[1:2,:,1:3]
-
-        @test y[:] == vec(sliceof(y, 1:3, -1:2, 3:4))
-        @test y[:,:,:] == sliceof(y, 1:3, -1:2, 3:4)
-        @test y[1,:,:] == sliceof(y, 1, -1:2, 3:4)
-        @test y[1,:,4] == sliceof(y, 1, -1:2, 4)
-        @test_throws ErrorException y[1,:,5]
-        @test y[1:2,:,:] == sliceof(y, 1:2, -1:2, 3:4)
-        @test y[1:2,:,4] == sliceof(y, 1:2, -1:2, 4)
-        @test y[1:2,:,3:4] == sliceof(y, 1:2, -1:2, 3:4)
-        @test_throws BoundsError y[1:2,:,1:3]
-
-        @test z[:] == vec(sliceof(z, 1:3, -1:2:4, 3:4))
-        @test z[:,1,:] == sliceof(z, 1:3, 1, 3:4)
-        @test z[1,1,:] == sliceof(z, 1, 1, 3:4)
-        @test_throws ErrorException z[:,5,3]
-        @test z[1:2,1,:] == sliceof(z, 1:2, 1, 3:4)
-        @test z[1:2,1,4] == sliceof(z, 1:2, 1, 4)
-        @test z[1:2,1,3:4] == sliceof(z, 1:2, 1, 3:4)
-        @test_throws BoundsError z[1:2,1,1:3]
-
-        @test w[:] == vec(sliceof(w, 1:3, -1:2, [:red,"blue"]))
-        @test_throws ErrorException w[:,:,:]
-        @test w[1,:,"blue"] == sliceof(w, 1, -1:2, ["blue"])
-        @test w[1,:,:red] == sliceof(w, 1, -1:2, [:red])
-        @test_throws ErrorException w[1,:,"green"]
-        @test w[1:2,:,"blue"] == sliceof(w, 1:2, -1:2, ["blue"])
-        @test_throws ErrorException w[1:2,:,[:red,"blue"]]
-    end
-
-    @testset "Can't use end for indexing a JuMPContainer" begin
-        m = Model()
-        @variable(m, x[0:2,1:4])
-        @variable(m, y[i=1:4,j=1:4;true])
-        @variable(m, z[0:2])
-        @test_throws ErrorException x[end,1]
-        @test_throws ErrorException x[end-1]
-        @test_throws ErrorException x[0,end-1]
-        @test_throws MethodError y[end,end-1]
-        @test_throws MethodError y[end,1]
-        @test_throws ErrorException z[end]
-    end
+    # @testset "Can't use end for indexing a JuMPContainer" begin
+    #     m = Model()
+    #     @variable(m, x[0:2,1:4])
+    #     @variable(m, y[i=1:4,j=1:4;true])
+    #     @variable(m, z[0:2])
+    #     @test_throws ErrorException x[end,1]
+    #     @test_throws ErrorException x[end-1]
+    #     @test_throws ErrorException x[0,end-1]
+    #     @test_throws MethodError y[end,end-1]
+    #     @test_throws MethodError y[end,1]
+    #     @test_throws ErrorException z[end]
+    # end
 
     @testset "Unsigned dimension lengths" begin
         m = Model()
         t = UInt(4)
         @variable(m, x[1:t])
-        @constraintref(y[1:t])
+        #@constraintref(y[1:t])
         @test JuMP.numvar(m) == 4
     end
 

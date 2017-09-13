@@ -24,6 +24,7 @@ const MOIU = MathOptInterfaceUtilities
 using Calculus
 using ReverseDiffSparse
 using ForwardDiff
+import AxisArrays
 
 export
 # Objects
@@ -63,7 +64,7 @@ export
     @objective, @NLobjective,
     @NLparameter, @constraintref
 
-include("containers.jl")
+
 include("utils.jl")
 
 const MOIVAR = MOI.VariableReference
@@ -797,6 +798,7 @@ Base.ndims(::JuMPTypes) = 0
 
 
 ##########################################################################
+include("containers.jl")
 include("operators.jl")
 # include("writers.jl")
 include("macros.jl")
