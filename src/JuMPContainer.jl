@@ -19,7 +19,7 @@ mutable struct JuMPDict{T,N} <: JuMPContainer{T,N}
     tupledict::Dict{NTuple{N,Any},T}
     meta::Dict{Symbol,Any}
 
-    (::Type{JuMPDict{T,N}}){T,N}() = new{T,N}(Dict{NTuple{N,Any},T}(), Dict{Symbol,Any}())
+    JuMPDict{T,N}() where {T,N} = new{T,N}(Dict{NTuple{N,Any},T}(), Dict{Symbol,Any}())
 end
 
 function JuMPDict(d::Dict{NTuple{N,Any},T}) where {T,N}
@@ -211,7 +211,7 @@ mutable struct KeyIterator{JA<:JuMPArray}
     x::JA
     dim::Int
     next_k_cache::Array{Any,1}
-    function (::Type{KeyIterator{JA}}){JA}(d)
+    function KeyIterator{JA}(d) where JA
         n = ndims(d.innerArray)
         new{JA}(d, n, Array{Any}(n+1))
     end
