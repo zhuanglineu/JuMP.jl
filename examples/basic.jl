@@ -16,20 +16,34 @@
 #      0 <= y <= 30
 #############################################################################
 
-using JuMP, Clp
+using JuMP, GLPK
 
-m = Model(solver = ClpSolver())
+m = Model(optimizer = GLPKOptimizerLP())
 
 @variable(m, 0 <= x <= 2)
 @variable(m, 0 <= y <= 30)
 
 @objective(m, Max, 5x + 3y)
-@constraint(m, 1x + 5y <= 3.0)
+c = @constraint(m, 1x + 5y <= 3.0)
+
+const MOI = MathOptInterface
+function setrhs(c, rhs)
+    moi = c.m.moibackend
+    MOI.set!(moi, MOI.ConstraintSet(), c.index, MOI.set_type(c.index)(rhs))
+end
 
 print(m)
 
-status = solve(m)
+JuMP.optimize(m)
 
-println("Objective value: ", getobjectivevalue(m))
-println("x = ", getvalue(x))
-println("y = ", getvalue(y))
+println("Objective value: ", JuMP.objectivevalue(m))
+println("x = ", JuMP.resultvalue(x))
+println("y = ", JuMP.resultvalue(y))
+
+setrhs(c, 4.0)
+
+JuMP.optimize(m)
+
+println("Objective value: ", JuMP.objectivevalue(m))
+println("x = ", JuMP.resultvalue(x))
+println("y = ", JuMP.resultvalue(y))
