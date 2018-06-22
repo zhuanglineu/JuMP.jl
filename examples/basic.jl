@@ -16,7 +16,23 @@
 #      0 <= y <= 30
 #############################################################################
 
-using JuMP, GLPK
+using JuMP, GLPK, Base.Test
+const MOI = MathOptInterface
+
+set_type(c::JuMP.ConstraintRef{JuMP.Model, MathOptInterface.ConstraintIndex{F,S}}) where {F,S} = S
+function MOI.modify!(m::JuMP.Model, c::JuMP.ConstraintRef, change::MOI.AbstractFunctionModification)
+    MOI.modify!(c.m.moibackend, JuMP.index(c), change)
+end
+MOI.ScalarCoefficientChange(x::JuMP.VariableRef, v) = MOI.ScalarCoefficientChange(JuMP.index(x), v)
+
+function setconstant(c::JuMP.ConstraintRef, rhs::Float64)
+    new_set = set_type(c)(rhs)
+    MOI.set!(c.m, MOI.ConstraintSet(), c, new_set)
+end
+
+function setcoefficient(c::JuMP.ConstraintRef, x::JuMP.VariableRef, value::Float64)
+    MOI.modify!(c.m, c, MOI.ScalarCoefficientChange(x, value))
+end
 
 m = Model(optimizer = GLPKOptimizerLP())
 
@@ -26,24 +42,32 @@ m = Model(optimizer = GLPKOptimizerLP())
 @objective(m, Max, 5x + 3y)
 c = @constraint(m, 1x + 5y <= 3.0)
 
-const MOI = MathOptInterface
-function setrhs(c, rhs)
-    moi = c.m.moibackend
-    MOI.set!(moi, MOI.ConstraintSet(), c.index, MOI.set_type(c.index)(rhs))
-end
+JuMP.optimize(m)
 
-print(m)
+@test JuMP.objectivevalue(m) == 10.6
+@test JuMP.resultvalue(x)    == 2.0
+@test JuMP.resultvalue(y)    == 0.2
+
+setconstant(c, 4.0)
 
 JuMP.optimize(m)
 
-println("Objective value: ", JuMP.objectivevalue(m))
-println("x = ", JuMP.resultvalue(x))
-println("y = ", JuMP.resultvalue(y))
+@test JuMP.objectivevalue(m) == 11.2
+@test JuMP.resultvalue(x)    == 2.0
+@test JuMP.resultvalue(y)    == 0.4
 
-setrhs(c, 4.0)
+setcoefficient(c, x, 2.0)
 
 JuMP.optimize(m)
 
-println("Objective value: ", JuMP.objectivevalue(m))
-println("x = ", JuMP.resultvalue(x))
-println("y = ", JuMP.resultvalue(y))
+@test JuMP.objectivevalue(m) == 10.0
+@test JuMP.resultvalue(x)    == 2.0
+@test JuMP.resultvalue(y)    == 0.0
+
+setconstant(c, 3.0)
+
+JuMP.optimize(m)
+
+@test JuMP.objectivevalue(m) == 7.5
+@test JuMP.resultvalue(x)    == 1.5
+@test JuMP.resultvalue(y)    == 0.0
