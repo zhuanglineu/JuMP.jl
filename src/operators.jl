@@ -587,22 +587,22 @@ end
 # would be more easily/robustly replaced by using a tool like
 # https://github.com/jrevels/Cassette.jl.
 
-function Base.:*(A::Union{Matrix{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}},
-                 B::Union{Matrix, Vector, SparseMatrixCSC})
-    return _A_mul_B(A, B)
-end
-
-function Base.:*(A::Union{Matrix{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}},
-                 B::Union{Matrix{<:JuMPTypes}, Vector{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}})
-    return _A_mul_B(A, B)
-end
-
-function Base.:*(A::Union{Matrix, SparseMatrixCSC},
-                 B::Union{Matrix{<:JuMPTypes}, Vector{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}})
-    return _A_mul_B(A, B)
-end
-
 if VERSION < v"0.7-"
+    function Base.:*(A::Union{Matrix{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}},
+                     B::Union{Matrix, Vector, SparseMatrixCSC})
+        return _A_mul_B(A, B)
+    end
+
+    function Base.:*(A::Union{Matrix{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}},
+                     B::Union{Matrix{<:JuMPTypes}, Vector{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}})
+        return _A_mul_B(A, B)
+    end
+
+    function Base.:*(A::Union{Matrix, SparseMatrixCSC},
+                     B::Union{Matrix{<:JuMPTypes}, Vector{<:JuMPTypes}, SparseMatrixCSC{<:JuMPTypes}})
+        return _A_mul_B(A, B)
+    end
+
     # These methods are called when one does A.'*B.
     function Base.At_mul_B(A::Union{Matrix{T}, SparseMatrixCSC{T}},
                            B::Union{Matrix, Vector, SparseMatrixCSC}) where {T <: JuMPTypes}
@@ -635,26 +635,36 @@ if VERSION < v"0.7-"
                            B::Union{Matrix{T}, Vector{T}, SparseMatrixCSC{T}}) where {T <: JuMPTypes}
         return _At_mul_B(A, B)
     end
-
 else
-    # TODO: This is a stopgap solution to get (most) tests passing on Julia 0.7. A lot of
-    # cases probably still don't work. (Like A * A where A is a sparse matrix of a JuMP
-    # type). This code needs a big refactor.
-    Base.:*(A::Adjoint{<:JuMPTypes, <:SparseMatrixCSC}, B::Vector) = _At_mul_B(parent(A), B)
-    Base.:*(A::Adjoint{<:Any, <:SparseMatrixCSC}, B::Vector{<:JuMPTypes}) = _At_mul_B(parent(A), B)
-    Base.:*(A::Adjoint{<:JuMPTypes, <:SparseMatrixCSC}, B::Vector{<:JuMPTypes}) = _At_mul_B(parent(A), B)
+    for A in (:Matrix, :SparseMatrixCSC), B in (:Matrix, :SparseMatrixCSC)
+        @eval begin
+            Base.:*(a::$A{<:JuMPTypes}, b::$B)
+            Base.:*(a::$A, b::$B{<:JuMPTypes})
+            Base.:*(a::$A{<:JuMPTypes}, b::$B{<:JuMPTypes})
+        end
+        for T in (:Adjoint, :Transpose)
+            @eval begin
+                Base.:*(a::$T{<:JuMPTypes, <:$A}, b::$B)
+                Base.:*(a::$A, b::$T{<:JuMPTypes, <:$B})
 
-    Base.:*(A::Transpose{<:JuMPTypes, <:SparseMatrixCSC}, B::Vector) = _At_mul_B(parent(A), B)
-    Base.:*(A::Transpose{<:Any, <:SparseMatrixCSC}, B::Vector{<:JuMPTypes}) = _At_mul_B(parent(A), B)
-    Base.:*(A::Transpose{<:JuMPTypes, <:SparseMatrixCSC}, B::Vector{<:JuMPTypes}) = _At_mul_B(parent(A), B)
+                Base.:*(a::$T{<:Any, <:$A}, b::$B{<:JuMPTypes})
+                Base.:*(a::$A{<:JuMPTypes}, b::$T{<:Any, <:$B})
 
-    Base.:*(A::Adjoint{<:JuMPTypes, <:SparseMatrixCSC}, B::Matrix) = _At_mul_B(parent(A), B)
-    Base.:*(A::Adjoint{<:Any, <:SparseMatrixCSC}, B::Matrix{<:JuMPTypes}) = _At_mul_B(parent(A), B)
-    Base.:*(A::Adjoint{<:JuMPTypes, <:SparseMatrixCSC}, B::Matrix{<:JuMPTypes}) = _At_mul_B(parent(A), B)
-
-    Base.:*(A::Transpose{<:JuMPTypes, <:SparseMatrixCSC}, B::Matrix) = _At_mul_B(parent(A), B)
-    Base.:*(A::Transpose{<:Any, <:SparseMatrixCSC}, B::Matrix{<:JuMPTypes}) = _At_mul_B(parent(A), B)
-    Base.:*(A::Transpose{<:JuMPTypes, <:SparseMatrixCSC}, B::Matrix{<:JuMPTypes}) = _At_mul_B(parent(A), B)
+                Base.:*(a::$T{<:JuMPTypes, <:$A}, b::$B{<:JuMPTypes})
+                Base.:*(a::$A{<:JuMPTypes}, b::$T{<:JuMPTypes, <:$B})
+            end
+            for S in (:Adjoint, :Transpose)
+                @eval begin
+                    Base.:*(a::$T{<:JuMPTypes, <:$A}, b::$S{<:Any, <:$B})
+                    Base.:*(a::$T{<:Any, <:$A}, b::$S{<:JuMPTypes, <:$B})
+                    Base.:*(a::$T{<:JuMPTypes, <:$A}, b::$S{<:JuMPTypes, <:$B})
+                end
+            end
+        end
+    end
+    for V in (:Vector, :SparseVector), M in (:Matrix, :SparseMatrixCSC)
+        # TODO
+    end
 end
 
 # Base doesn't define efficient fallbacks for sparse array arithmetic involving
