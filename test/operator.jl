@@ -220,9 +220,13 @@ end
         @test string(y - socexpr) == "-1.5 $Vert[w,-w + 1]$Vert$sub2 + w + y + 2"
         @test_throws MethodError y * socexpr
         @test_throws MethodError y / socexpr
-        @test_throws ErrorException @SOCConstraint(y ≤ socexpr)
-        @test_throws ErrorException @SOCConstraint(y == socexpr)
-        @test string(@SOCConstraint(y ≥ socexpr)) ∈ ["1.5 $Vert[w,-w + 1]$Vert$sub2 $leq y + w + 2", "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + y + 2"]
+        if VERSION >= v"0.7-"
+            # Segfaults on Julia v0.6 on Travis when SCS is loaded.
+            # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/434008037#L830
+            @test_throws ErrorException @SOCConstraint(y ≤ socexpr)
+            @test_throws ErrorException @SOCConstraint(y == socexpr)
+            @test string(@SOCConstraint(y ≥ socexpr)) ∈ ["1.5 $Vert[w,-w + 1]$Vert$sub2 $leq y + w + 2", "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + y + 2"]
+        end
 
         end
 
