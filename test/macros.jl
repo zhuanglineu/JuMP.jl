@@ -14,6 +14,16 @@ const sub2 = JuMP.repl[:sub2]
 
 struct __Cone__ end
 
+@testset "Set constraint syntax" begin
+    m = Model()
+    @variable(m, x)
+
+    JuMP.constructconstraint!(aff, ::__Cone__) = (m.ext[:ConeTest] = 1; LinearConstraint(aff, 0, 0))
+
+    @constraint(m, 2x in __Cone__())
+    @test m.ext[:ConeTest] == 1
+end
+
 mutable struct MyVariable
     lowerbound
     upperbound
@@ -23,9 +33,41 @@ mutable struct MyVariable
     test_kw::Int
 end
 
-@testset "Macros" begin
+@testset "Extension of @variable with constructvariable! #1029" begin
+    JuMP.variabletype(m::Model, ::Type{MyVariable}) = MyVariable
+    function JuMP.constructvariable!(m::Model, ::Type{MyVariable}, _error::Function, lowerbound::Number, upperbound::Number, category::Symbol, basename::AbstractString, start::Number; test_kw::Int = 0)
+        MyVariable(lowerbound, upperbound, category, basename, start, test_kw)
+    end
+    m = Model()
+    @variable(m, 1 <= x <= 2, MyVariable, category = :Bin, test_kw = 1, start = 3)
+    @test isa(x, MyVariable)
+    @test x.lowerbound == 1
+    @test x.upperbound == 2
+    @test x.category == :Bin
+    @test x.basename == "x"
+    @test x.start == 3
+    @test x.test_kw == 1
+    @variable(m, y[1:3] >= 0, MyVariable, test_kw = 2)
+    @test isa(y, Vector{MyVariable})
+    for i in 1:3
+        @test y[i].lowerbound == 0
+        @test y[i].upperbound == Inf
+        @test y[i].category == :Default
+        @test isempty(y[i].basename)
+        @test isnan(y[i].start)
+        @test y[i].test_kw == 2
+    end
+end
 
+@testset "constructconstraint! on variable" begin
+    m = Model()
+    @variable(m, x)
+    @test string(JuMP.constructconstraint!(x, :(>=))) == "x $geq 0"
+    @test string(JuMP.constructconstraint!(x, :(<=))) == "x $leq 0"
+    @test string(JuMP.constructconstraint!(x, :(==))) == "x $eq 0"
+end
 
+function curly()
     @testset "Check Julia curly expression parsing" begin
         sumexpr = :(sum{x[i,j] * y[i,j], i = 1:N, j in 1:M; i != j})
         @test sumexpr.head == :curly
@@ -47,7 +89,9 @@ end
 
         @test sumexpr.args[4].head == :(=)
     end
+end
 
+function generator()
     @testset "Check Julia generator expression parsing" begin
         sumexpr = :(sum(x[i,j] * y[i,j] for i = 1:N, j in 1:M if i != j))
         @test sumexpr.head == :call
@@ -67,7 +111,9 @@ end
         @test sumexpr.args[2].args[2] == :(i = 1:N)
         @test sumexpr.args[2].args[3] == :(j = 1:M)
     end
+end
 
+function constraint_basics()
     @testset "Check @constraint basics" begin
         m = Model()
         @variable(m, w)
@@ -108,14 +154,18 @@ end
         @expression(m, qaff, (w+3)*(2x+1)+10)
         @test string(qaff) == "2 w*x + 6 x + w + 13"
     end
+end
 
+function reverse_direction_bounds()
     @testset "Checking @variable with reverse direction bounds" begin
         m = Model()
         @variable(m, 3.2 >= x >= 1)
         @test m.colLower == [1.0]
         @test m.colUpper == [3.2]
     end
+end
 
+function sum()
     @testset "sum{} (deprecated)" begin
         m = Model()
         @variable(m, x[1:3,1:3])
@@ -136,7 +186,9 @@ end
         @test string(m.linconstr[end]) == "3 y $eq 0"
 
     end
+end
 
+function sum_generator()
     @testset "[macros] sum(generator)" begin
         m = Model()
         @variable(m, x[1:3,1:3])
@@ -168,7 +220,9 @@ end
         #@test isexpr(macroexpand(:(@constraint(m, sum( 0*x[i,1] + y for i=1:3 for j in 1:3) == 0))),:error) == true
 
     end
+end
 
+function problem_modification()
     @testset "Problem modification" begin
         m = Model()
         @variable(m, x[1:3,1:3])
@@ -186,7 +240,9 @@ end
         JuMP.setRHS(con, 3)
         @test string(m.linconstr[end]) == "2 x[1,2] + 3 x[1,3] + 4 x[2,1] + 6 x[2,3] + 7 x[3,1] + 8 x[3,2] - y $eq 3"
     end
+end
 
+function prebuilt_affine()
     @testset "Using pre-built affine is OK in macro" begin
         m = Model()
         @variable(m, x)
@@ -202,7 +258,9 @@ end
 
         @test string(@LinearConstraint(1 + 0*temp == 0)) == "0 $eq -1"
     end
+end
 
+function range_in_variable()
     @testset "Test ranges in @variable" begin
         m = Model()
         @variable(m, x[1:5])
@@ -222,7 +280,9 @@ end
         @test_throws ErrorException z[8].col
         @test_throws ErrorException w[end]
     end
+end
 
+function unicode_comparisons()
     @testset "Unicode comparisons" begin
         m = Model()
         @variable(m, 0 ≤ x ≤ 1)
@@ -242,7 +302,9 @@ end
         @test m.linconstr[3].ub == Inf
         @test m.quadconstr[1].sense == :(<=)
     end
+end
 
+function three_argument_constraint()
     @testset "Three argument @constraint" begin
         m = Model()
         @variable(m, x[1:5])
@@ -257,7 +319,9 @@ end
         @constraint(m, q[i=1:5], x[i]^2 == 1)
         @test string(m.quadconstr[q[5].idx]) == "x[5]² - 1 $eq 0"
     end
+end
 
+function constraint_macro()
     @testset "@constraints" begin
         m = Model()
         @variable(m, x)
@@ -273,7 +337,9 @@ end
         @test string(m.linconstr[3]) == "y[1] + y[2] $geq 2"
         @test string(m.linconstr[4]) == "y[1] + y[3] $geq 3"
     end
+end
 
+function nlconstraint_macro()
     @testset "@NLconstraints" begin
         m = Model()
         @variable(m, 0 <= x <= 1)
@@ -295,14 +361,18 @@ end
         @test MathProgBase.constr_expr(d,4) == :((x[1] + x[2] * x[3] * x[4]) - 0.5 <= 0.0)
 
     end
+end
 
+function vectors_in_nl()
     @testset "Vectors in nonlinear expressions" begin
         m = Model()
         @variable(m, x[1:3])
         @test_throws ErrorException @NLobjective(m, Min, x)
         @test_throws ErrorException @NLobjective(m, Min, [1,2,3])
     end
+end
 
+function quadratic()
     @testset "@objective with quadratic" begin
         m = Model()
         @variable(m, x[1:5])
@@ -349,7 +419,9 @@ end
         z = 2y
         @test string(@QuadConstraint(y*y + y*z == 0)) == "3 y² $eq 0"
     end
+end
 
+function indexing()
     @testset "Triangular indexing, iteration" begin
         n = 10
         trimod = Model()
@@ -391,6 +463,22 @@ end
         @test match
     end
 
+    @testset "Conditions in constraint indexing" begin
+        model = Model()
+        @variable(model, x[1:10])
+        @constraint(model, c1[i=1:9;isodd(i)], x[i] + x[i+1] <= 1)
+        @NLconstraint(model, c2[i=["red","blue","green"], k=9:-2:2; (i == "red" && isodd(k)) || (k >=4 && (i == "blue" || i == "green"))], x[k]^3 <= 1)
+        @test length(model.linconstr) == 5
+        @test string(model.linconstr[1]) == "x[1] + x[2] $leq 1"
+        @test string(model.linconstr[2]) == "x[3] + x[4] $leq 1"
+        @test string(model.linconstr[3]) == "x[5] + x[6] $leq 1"
+        @test string(model.linconstr[4]) == "x[7] + x[8] $leq 1"
+        @test string(model.linconstr[5]) == "x[9] + x[10] $leq 1"
+        @test length(model.nlpdata.nlconstr) == 10
+    end
+end
+
+function expression_macro()
     @testset "@expression" begin
         model = Model()
         @variable(model, x[1:3,1:3])
@@ -406,21 +494,9 @@ end
         t = @expression(model, sum(x[i,j] for i in 1:3 for j in 1:3 if isodd(i+j)))
         @test string(t) == "x[1,2] + x[2,1] + x[2,3] + x[3,2]"
     end
+end
 
-    @testset "Conditions in constraint indexing" begin
-        model = Model()
-        @variable(model, x[1:10])
-        @constraint(model, c1[i=1:9;isodd(i)], x[i] + x[i+1] <= 1)
-        @NLconstraint(model, c2[i=["red","blue","green"], k=9:-2:2; (i == "red" && isodd(k)) || (k >=4 && (i == "blue" || i == "green"))], x[k]^3 <= 1)
-        @test length(model.linconstr) == 5
-        @test string(model.linconstr[1]) == "x[1] + x[2] $leq 1"
-        @test string(model.linconstr[2]) == "x[3] + x[4] $leq 1"
-        @test string(model.linconstr[3]) == "x[5] + x[6] $leq 1"
-        @test string(model.linconstr[4]) == "x[7] + x[8] $leq 1"
-        @test string(model.linconstr[5]) == "x[9] + x[10] $leq 1"
-        @test length(model.nlpdata.nlconstr) == 10
-    end
-
+function condition_parsing()
     @testset "Test changes in condition parsing" begin
         ex = :(x[12;3])
         @test ex.head == :typed_vcat
@@ -447,7 +523,9 @@ end
                               Expr(:kw, :j, :S)]
         end
     end
+end
 
+function curly_deprecated()
     @static if VERSION >= v"0.7-"
         @testset "Curly norm parsing (deprecated)" begin
             model = Model()
@@ -475,7 +553,9 @@ end
             @test_throws ErrorException @constraint(model, norm(x[i,j] for i=1:2, j=1:2) + x[1,2] >= -1)
         end
     end
+end
 
+function extraneous_terms()
     @testset "Extraneous terms in QuadExpr (#535)" begin
         model = Model()
         @variable(model, x)
@@ -483,7 +563,9 @@ end
         @constraint(model, x*x <= y*y)
         @test string(model.quadconstr[1]) == "x² - y² $leq 0"
     end
+end
 
+function binary_multiplication()
     @testset "Special-case binary multiplication in addtoexpr_reorder (#537)" begin
         dual = Model()
         @variable(dual, α[1:3] <= 0)
@@ -493,7 +575,9 @@ end
         @test string(dual.linconstr[2]) == "γ - α[2] $leq 0"
         @test string(dual.linconstr[3]) == "γ - α[3] $leq 0"
     end
+end
 
+function indices_leak()
     @testset "Indices in macros don't leak out of scope (#582)" begin
         m = Model()
         cnt = 4
@@ -539,7 +623,9 @@ end
             @test i == cnt
         end
     end
+end
 
+function issue_621()
     @testset "Issue #621" begin
         m = Model()
         @variable(m, x)
@@ -549,7 +635,9 @@ end
         con = @QuadConstraint(a+q*3 <= 0)
         @test string(con) == "3 x² + x + 1 $leq 0"
     end
+end
 
+function variables_and_constraints()
     @testset "@variables and @constraints" begin
         m = Model()
         @variables m begin
@@ -578,7 +666,9 @@ end
         @test m.linconstr[3].ub == Inf
         @test m.quadconstr[1].sense == :(<=)
     end
+end
 
+function expressions_and_nlexpressions()
     @testset "@expressions and @NLexpressions" begin
         m = Model()
         @variable(m, x)
@@ -603,7 +693,9 @@ end
         @test getvalue(nlex2[2]) == 2^2 + sqrt(2)
         @test_throws BoundsError getvalue(nlex2[3])
     end
+end
 
+function bare_symbols()
     @testset "No bare symbols in constraint macros" begin
         m = Model()
         @variable(m, x)
@@ -623,7 +715,9 @@ end
             @test_throws LoadError @macroexpand @NLconstraint(m, :foo)
         end
     end
+end
 
+function lb_ub_kwargs()
     @testset "LB/UB kwargs" begin
         m = Model()
         @variable(m, a, lowerbound=0)
@@ -647,7 +741,9 @@ end
             @test_throws LoadError @macroexpand @variable(m, 0 <= j <= 1, upperbound=1)
         end
     end
+end
 
+function anonymous_macros()
     @testset "Anonymous versions of macros" begin
         m = Model()
         x = @variable(m, [1:3], lowerbound=1.0)
@@ -694,13 +790,17 @@ end
         @test e[2] == e[2]
         @test f[:red] == f[:red]
     end
+end
 
+function colon_in_index_sets()
     @testset "Colons in index sets" begin
         m = Model()
         S = [:]
         @test_throws ErrorException @variable(m, x[S])
     end
+end
 
+function getindex_constraint()
     @testset "getindex constraint" begin
         m = Model()
         @variable(m, x)
@@ -713,7 +813,9 @@ end
         @test _c3 == m[:c3]
         @test _c4 == m[:c4]
     end
+end
 
+function anonymous_singleton_variable()
     @testset "Anonymous singleton variables" begin
         m = Model()
         x = @variable(m)
@@ -722,7 +824,9 @@ end
         @test y == Variable(m, 2)
         @test getcategory(y) == :Int
     end
+end
 
+function invalid()
     @testset "Invalid variable names" begin
         m = Model()
         if VERSION < v"0.7-"
@@ -748,7 +852,9 @@ end
         @test_throws ErrorException @constraint m 2*x <= y <= 1
         @test_throws ErrorException @constraint m x+y <= x <= x*y
     end
+end
 
+function adding_vector_constraints()
     @testset "Adding vector constraints" begin
         m = Model()
         @variable(m, x[1:2, 1:2])
@@ -767,7 +873,9 @@ end
         @test expr2 == [2.0x[1,1] + 3.0x[1,2] + y[1];
                         2.0x[2,1] + 3.0x[2,2] + y[2]]
     end
+end
 
+function filling_expression_with_a_number()
     @testset "Filling @expression with a number" begin
         m = Model()
         @expression(m, y[1:3], 0.0)
@@ -776,7 +884,9 @@ end
         @test y[1] == y[2] == y[3] == AffExpr(0.0)
         @test z[:A] == z[:B] == z[:C] == AffExpr(0.0)
     end
+end
 
+function linear_constraints()
     @testset "@LinearConstraints" begin
         m = Model()
         @variable(m, x[1:3])
@@ -790,17 +900,9 @@ end
        @test lc[2].lb == -Inf
        @test lc[2].ub == 2
     end
+end
 
-    @testset "Set constraint syntax" begin
-        m = Model()
-        @variable(m, x)
-
-        JuMP.constructconstraint!(aff, ::__Cone__) = (m.ext[:ConeTest] = 1; LinearConstraint(aff, 0, 0))
-
-        @constraint(m, 2x in __Cone__())
-        @test m.ext[:ConeTest] == 1
-    end
-
+function binary_invalid_bounds()
     @testset "Binary variable with invalid bounds" begin
         m = Model()
         @test_throws ArgumentError @variable(m, 2 <= x <= 3, Bin)
@@ -823,41 +925,9 @@ end
         @test getlowerbound(z) == 0
         @test getupperbound(z) == 1
     end
+end
 
-    @testset "Extension of @variable with constructvariable! #1029" begin
-        JuMP.variabletype(m::Model, ::Type{MyVariable}) = MyVariable
-        function JuMP.constructvariable!(m::Model, ::Type{MyVariable}, _error::Function, lowerbound::Number, upperbound::Number, category::Symbol, basename::AbstractString, start::Number; test_kw::Int = 0)
-            MyVariable(lowerbound, upperbound, category, basename, start, test_kw)
-        end
-        m = Model()
-        @variable(m, 1 <= x <= 2, MyVariable, category = :Bin, test_kw = 1, start = 3)
-        @test isa(x, MyVariable)
-        @test x.lowerbound == 1
-        @test x.upperbound == 2
-        @test x.category == :Bin
-        @test x.basename == "x"
-        @test x.start == 3
-        @test x.test_kw == 1
-        @variable(m, y[1:3] >= 0, MyVariable, test_kw = 2)
-        @test isa(y, Vector{MyVariable})
-        for i in 1:3
-            @test y[i].lowerbound == 0
-            @test y[i].upperbound == Inf
-            @test y[i].category == :Default
-            @test isempty(y[i].basename)
-            @test isnan(y[i].start)
-            @test y[i].test_kw == 2
-        end
-    end
-
-    @testset "constructconstraint! on variable" begin
-        m = Model()
-        @variable(m, x)
-        @test string(JuMP.constructconstraint!(x, :(>=))) == "x $geq 0"
-        @test string(JuMP.constructconstraint!(x, :(<=))) == "x $leq 0"
-        @test string(JuMP.constructconstraint!(x, :(==))) == "x $eq 0"
-    end
-
+function nested_tuple_destructuring()
     @testset "Nested tuple destructuring" begin
     m = Model()
     @variable(m, x)
@@ -867,3 +937,46 @@ end
     @test m.linconstr[1].terms == 1x
     end
 end
+
+function macros()
+    @testset "Macros" begin
+        curly()
+        generator()
+        constraint_basics()
+        reverse_direction_bounds()
+        sum()
+        sum_generator()
+        problem_modification()
+        prebuilt_affine()
+        range_in_variable()
+        unicode_comparisons()
+        three_argument_constraint()
+        constraint_macro()
+        nlconstraint_macro()
+        vectors_in_nl()
+        quadratic()
+        indexing()
+        expression_macro()
+        condition_parsing()
+        curly_deprecated()
+        extraneous_terms()
+        binary_multiplication()
+        indices_leak()
+        issue_621()
+        variables_and_constraints()
+        bare_symbols()
+        lb_ub_kwargs()
+        anonymous_macros()
+        colon_in_index_sets()
+        getindex_constraint()
+        anonymous_singleton_variable()
+        invalid()
+        adding_vector_constraints()
+        filling_expression_with_a_number()
+        linear_constraints()
+        binary_invalid_bounds()
+        nested_tuple_destructuring()
+    end
+end
+
+macros()
