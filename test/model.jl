@@ -381,82 +381,84 @@ end
     end
 
 
-    @testset "Test model copying" begin
-        source = Model()
-        @variable(source, 2 <= x <= 5)
-        @variable(source, 0 <= y <= 1, Int)
-        @objective(source, Max, 3*x + 1*y)
-        @constraint(source, x + 2.0*y <= 6)
-        @constraint(source, x*x <= 1)
-        addSOS2(source, [x, 2y])
-        @SDconstraint(source, x*ones(3,3) >= Matrix(1.0I, 3, 3))
-        @SDconstraint(source, ones(3,3) <= 0)
-        @variable(source, z[1:3])
-        @variable(source, w[2:4]) # JuMPArray
-        @variable(source, v[[:red],i=1:3;isodd(i)]) # JuMPDict
-        JuMP.setsolvehook(source, m -> :Optimal)
+    @static if VERSION >= v"0.7-"
+        @testset "Test model copying" begin
+            source = Model()
+            @variable(source, 2 <= x <= 5)
+            @variable(source, 0 <= y <= 1, Int)
+            @objective(source, Max, 3*x + 1*y)
+            @constraint(source, x + 2.0*y <= 6)
+            @constraint(source, x*x <= 1)
+            addSOS2(source, [x, 2y])
+            @SDconstraint(source, x*ones(3,3) >= Matrix(1.0I, 3, 3))
+            @SDconstraint(source, ones(3,3) <= 0)
+            @variable(source, z[1:3])
+            @variable(source, w[2:4]) # JuMPArray
+            @variable(source, v[[:red],i=1:3;isodd(i)]) # JuMPDict
+            JuMP.setsolvehook(source, m -> :Optimal)
 
-        # uncomment when NLP copying is implemented
-        # @NLconstraint(source, c[k=1:3], x^2 + y^3 * sin(x+k*y) >= 1)
+            # uncomment when NLP copying is implemented
+            # @NLconstraint(source, c[k=1:3], x^2 + y^3 * sin(x+k*y) >= 1)
 
-        dest = copy(source)
+            dest = copy(source)
 
-        # uncomment when NLP copying is implemented
-        # for name in source.nlpdata
-        #     @test source.name == dest.name == true
-        # end
+            # uncomment when NLP copying is implemented
+            # for name in source.nlpdata
+            #     @test source.name == dest.name == true
+            # end
 
-        # Obj
-        @objective(source, Max, 1x)
-        @test length(source.obj.aff.coeffs) == 1
-        @test length(dest.obj.aff.coeffs) == 2
-        @objective(dest, Max, 1x)
-        @test length(source.obj.aff.coeffs) == 1
-        @test length(dest.obj.aff.coeffs) == 1
-        @objective(dest, Max, 3*x + 1*y)
-        @test length(source.obj.aff.coeffs) == 1
-        @test length(dest.obj.aff.coeffs) == 2
+            # Obj
+            @objective(source, Max, 1x)
+            @test length(source.obj.aff.coeffs) == 1
+            @test length(dest.obj.aff.coeffs) == 2
+            @objective(dest, Max, 1x)
+            @test length(source.obj.aff.coeffs) == 1
+            @test length(dest.obj.aff.coeffs) == 1
+            @objective(dest, Max, 3*x + 1*y)
+            @test length(source.obj.aff.coeffs) == 1
+            @test length(dest.obj.aff.coeffs) == 2
 
-        # Constraints
-        source.linconstr[1].ub = 5.0
-        @test dest.linconstr[1].ub == 6.0
-        source.quadconstr[1].sense = :(>=)
-        @test dest.quadconstr[1].sense == :(<=)
-        source.sosconstr[1].terms[1] = Variable(source, 2)
-        source.sosconstr[1].terms[2] = Variable(source, 1)
-        source.sosconstr[1].weights = [2.0,1.0]
-        source.sosconstr[1].sostype = :SOS1
-        @test dest.sosconstr[1].terms[1].col == 1
-        @test dest.sosconstr[1].terms[2].col == 2
-        @test dest.sosconstr[1].weights == [1.0,2.0]
-        @test dest.sosconstr[1].sostype == :SOS2
-        @test length(dest.sdpconstr) == 2
-        xx = copy(x, dest)
-        @test all(t -> isequal(t[1],t[2]), zip(dest.sdpconstr[1].terms, xx*ones(3, 3) - Matrix(1.0I, 3, 3)))
-        @test all(t -> isequal(t[1],t[2]), zip(dest.sdpconstr[2].terms, convert(Matrix{AffExpr}, -ones(3,3))))
+            # Constraints
+            source.linconstr[1].ub = 5.0
+            @test dest.linconstr[1].ub == 6.0
+            source.quadconstr[1].sense = :(>=)
+            @test dest.quadconstr[1].sense == :(<=)
+            source.sosconstr[1].terms[1] = Variable(source, 2)
+            source.sosconstr[1].terms[2] = Variable(source, 1)
+            source.sosconstr[1].weights = [2.0,1.0]
+            source.sosconstr[1].sostype = :SOS1
+            @test dest.sosconstr[1].terms[1].col == 1
+            @test dest.sosconstr[1].terms[2].col == 2
+            @test dest.sosconstr[1].weights == [1.0,2.0]
+            @test dest.sosconstr[1].sostype == :SOS2
+            @test length(dest.sdpconstr) == 2
+            xx = copy(x, dest)
+            @test all(t -> isequal(t[1],t[2]), zip(dest.sdpconstr[1].terms, xx*ones(3, 3) - Matrix(1.0I, 3, 3)))
+            @test all(t -> isequal(t[1],t[2]), zip(dest.sdpconstr[2].terms, convert(Matrix{AffExpr}, -ones(3,3))))
 
-        @test dest.solvehook(dest) == :Optimal
+            @test dest.solvehook(dest) == :Optimal
 
-        @test Set(collect(keys(dest.objDict))) == Set([:x,:y,:z,:w,:v])
-        @test isequal(dest.objDict[:x], Variable(dest, 1))
-        @test isequal(dest.objDict[:y], Variable(dest, 2))
-        @test all(t -> isequal(t[1], t[2]), zip(dest.objDict[:z], [Variable(dest, 3), Variable(dest, 4), Variable(dest, 5)]))
-        @test all(t -> isequal(t[1], t[2]), zip(dest.objDict[:w].innerArray, [Variable(dest, 6), Variable(dest, 7), Variable(dest, 8)]))
-        td = dest.objDict[:v].tupledict
-        @test length(td) == 2
-        @test isequal(td[:red,1], Variable(dest, 9))
-        @test isequal(td[:red,3], Variable(dest, 10))
+            @test Set(collect(keys(dest.objDict))) == Set([:x,:y,:z,:w,:v])
+            @test isequal(dest.objDict[:x], Variable(dest, 1))
+            @test isequal(dest.objDict[:y], Variable(dest, 2))
+            @test all(t -> isequal(t[1], t[2]), zip(dest.objDict[:z], [Variable(dest, 3), Variable(dest, 4), Variable(dest, 5)]))
+            @test all(t -> isequal(t[1], t[2]), zip(dest.objDict[:w].innerArray, [Variable(dest, 6), Variable(dest, 7), Variable(dest, 8)]))
+            td = dest.objDict[:v].tupledict
+            @test length(td) == 2
+            @test isequal(td[:red,1], Variable(dest, 9))
+            @test isequal(td[:red,3], Variable(dest, 10))
 
-        # Issue #358
-        @test typeof(dest.linconstr)  == Array{JuMP.GenericRangeConstraint{JuMP.GenericAffExpr{Float64,JuMP.Variable}},1}
-        @test typeof(dest.quadconstr) == Array{JuMP.GenericQuadConstraint{JuMP.GenericQuadExpr{Float64,JuMP.Variable}},1}
+            # Issue #358
+            @test typeof(dest.linconstr)  == Array{JuMP.GenericRangeConstraint{JuMP.GenericAffExpr{Float64,JuMP.Variable}},1}
+            @test typeof(dest.quadconstr) == Array{JuMP.GenericQuadConstraint{JuMP.GenericQuadExpr{Float64,JuMP.Variable}},1}
 
-        JuMP.setprinthook(source, m -> 2)
-        dest2 = copy(source)
-        @test dest2.printhook(dest2) == 2
+            JuMP.setprinthook(source, m -> 2)
+            dest2 = copy(source)
+            @test dest2.printhook(dest2) == 2
 
-        addlazycallback(source, cb -> 3)
-        @test_throws ErrorException copy(source)
+            addlazycallback(source, cb -> 3)
+            @test_throws ErrorException copy(source)
+        end
     end
 
 
