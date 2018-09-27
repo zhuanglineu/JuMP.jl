@@ -37,6 +37,7 @@ osl = try_import(:CoinOptServices)
 scs = try_import(:SCS)
 nlw = try_import(:AmplNLWriter)
 brn = try_import(:BARON)
+csd = try_import(:CSDP)
 
 # Create solver lists
 # LP solvers
