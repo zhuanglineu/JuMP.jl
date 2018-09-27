@@ -97,8 +97,10 @@ end
         socexpr = 1.5*nrm - 2 - w
         @test string(socexpr) == "1.5 $Vert[w,-w + 1]$Vert$sub2 - w - 2"
 
-        @test isequal(3w + 2y, 3w +2y) == true
-        @test isequal(3w + 2y + 1, 3w + 2y) == false
+        @static if VERSION >= v"0.7-"
+            @test isequal(3w + 2y, 3w +2y) == true
+            @test isequal(3w + 2y + 1, 3w + 2y) == false
+        end
 
         # Different objects that must all interact:
         # 1. Number
