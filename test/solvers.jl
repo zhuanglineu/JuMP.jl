@@ -12,31 +12,23 @@
 # Should be run as part of runtests.jl
 #############################################################################
 
-function try_import(name::Symbol)
-    try
-        @eval import $name
-        return true
-    catch e
-        return false
-    end
-end
+import GLPKMathProgInterface
 
 # Load available solvers
-grb = try_import(:Gurobi)
-cpx = try_import(:CPLEX)
-xpr = try_import(:Xpress)
-mos = try_import(:Mosek)
-cbc = try_import(:Cbc)
-if cbc; import Clp; end
-glp = try_import(:GLPKMathProgInterface)
-ipt = try_import(:Ipopt)
-nlo = try_import(:NLopt)
-kni = try_import(:KNITRO)
-eco = try_import(:ECOS)
-osl = try_import(:CoinOptServices)
-scs = try_import(:SCS)
-nlw = try_import(:AmplNLWriter)
-brn = try_import(:BARON)
+grb = false
+cpx = false
+xpr = false
+mos = false
+cbc = false
+glp = true
+ipt = false
+nlo = false
+kni = false
+eco = false
+osl = false
+scs = false
+nlw = false
+brn = false
 
 # Create solver lists
 # LP solvers
