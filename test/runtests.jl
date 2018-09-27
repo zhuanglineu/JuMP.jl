@@ -23,7 +23,9 @@ include("utilities.jl")
 include("print.jl")
 include("variable.jl")
 include("expr.jl")
-include("operator.jl")
+@static if VERSION >= v"0.7-"
+    include("operator.jl")
+end
 include("macros.jl")
 
 # Fuzzer of macros to build expressions
