@@ -218,9 +218,9 @@ end
         # 2-6 Variable--SOCExpr
         @test string(y + socexpr) == "1.5 $Vert[w,-w + 1]$Vert$sub2 - w + y - 2"
         @test string(y - socexpr) == "-1.5 $Vert[w,-w + 1]$Vert$sub2 + w + y + 2"
+        @test_throws MethodError y * socexpr
+        @test_throws MethodError y / socexpr
         @static if VERSION >= v"0.7-"
-            @test_throws MethodError y * socexpr
-            @test_throws MethodError y / socexpr
             # Segfaults on Julia v0.6 on Travis when SCS is loaded.
             # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/434008037#L830
             @test_throws ErrorException @SOCConstraint(y ≤ socexpr)
@@ -266,9 +266,11 @@ end
         @test string(nrm - aff) == "$Vert[w,-w + 1]$Vert$sub2 - 7.1 x - 2.5"
         @test_throws MethodError nrm * aff
         @test_throws MethodError nrm / aff
-        @test string(@SOCConstraint(nrm ≤ aff)) == "$Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + 2.5"
-        @test_throws ErrorException @SOCConstraint(nrm == aff)
-        @test_throws ErrorException @SOCConstraint(nrm ≥ aff)
+        @static if VERSION >= v"0.7-"
+            @test string(@SOCConstraint(nrm ≤ aff)) == "$Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + 2.5"
+            @test_throws ErrorException @SOCConstraint(nrm == aff)
+            @test_throws ErrorException @SOCConstraint(nrm ≥ aff)
+        end
         # 3-5 Norm--QuadExpr
         @test_throws MethodError nrm + q
         @test_throws MethodError nrm - q
@@ -319,9 +321,11 @@ end
         @test string(aff - nrm) == "-1.0 $Vert[w,-w + 1]$Vert$sub2 + 7.1 x + 2.5"
         @test_throws MethodError aff * nrm
         @test_throws MethodError aff / nrm
-        @test_throws ErrorException @SOCConstraint(aff ≤ nrm)
-        @test_throws ErrorException @SOCConstraint(aff == nrm)
-        @test string(@SOCConstraint(aff ≥ nrm)) == "$Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + 2.5"
+        @static if VERSION >= v"0.7-"
+            @test_throws ErrorException @SOCConstraint(aff ≤ nrm)
+            @test_throws ErrorException @SOCConstraint(aff == nrm)
+            @test string(@SOCConstraint(aff ≥ nrm)) == "$Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + 2.5"
+        end
         # 4-4 AffExpr--AffExpr
         @test string(aff + aff2) == "7.1 x + 1.2 y + 3.7"
         @test string(aff - aff2) == "7.1 x - 1.2 y + 1.3"
@@ -347,9 +351,11 @@ end
         @test string(aff - socexpr) == "-1.5 $Vert[w,-w + 1]$Vert$sub2 + 7.1 x + w + 4.5"
         @test_throws MethodError aff * socexpr
         @test_throws MethodError aff / socexpr
-        @test_throws ErrorException @SOCConstraint(aff ≤ socexpr)
-        @test_throws ErrorException @SOCConstraint(aff == socexpr)
-        @test string(@SOCConstraint(aff ≥ socexpr)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + w + 4.5"
+        @static if VERSION >= v"0.7-"
+            @test_throws ErrorException @SOCConstraint(aff ≤ socexpr)
+            @test_throws ErrorException @SOCConstraint(aff == socexpr)
+            @test string(@SOCConstraint(aff ≥ socexpr)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq 7.1 x + w + 4.5"
+        end
         end
 
         # 5. QuadExpr
@@ -426,9 +432,11 @@ end
         @test string(socexpr - y) == "1.5 $Vert[w,-w + 1]$Vert$sub2 - w - y - 2"
         @test_throws MethodError socexpr * y
         @test_throws MethodError socexpr / y
-        @test string(@SOCConstraint(socexpr ≤ y)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + y + 2"
-        @test_throws ErrorException @SOCConstraint(socexpr == y)
-        @test_throws ErrorException @SOCConstraint(socexpr ≥ y)
+        @static if VERSION >= v"0.7-"
+            @test string(@SOCConstraint(socexpr ≤ y)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + y + 2"
+            @test_throws ErrorException @SOCConstraint(socexpr == y)
+            @test_throws ErrorException @SOCConstraint(socexpr ≥ y)
+        end
         # 6-3 SOCExpr--Norm
         @test_throws MethodError socexpr + nrm
         @test_throws MethodError socexpr - nrm
@@ -442,9 +450,11 @@ end
         @test string(socexpr - aff) == "1.5 $Vert[w,-w + 1]$Vert$sub2 - w - 7.1 x - 4.5"
         @test_throws MethodError socexpr * aff
         @test_throws MethodError socexpr / aff
-        @test string(@SOCConstraint(socexpr ≤ aff)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + 7.1 x + 4.5"
-        @test_throws ErrorException @SOCConstraint(socexpr == aff)
-        @test_throws ErrorException @SOCConstraint(socexpr ≥ aff)
+        @static if VERSION >= v"0.7-"
+            @test string(@SOCConstraint(socexpr ≤ aff)) == "1.5 $Vert[w,-w + 1]$Vert$sub2 $leq w + 7.1 x + 4.5"
+            @test_throws ErrorException @SOCConstraint(socexpr == aff)
+            @test_throws ErrorException @SOCConstraint(socexpr ≥ aff)
+        end
         # 6-5 SOCExpr--QuadExpr
         @test_throws MethodError socexpr + q
         @test_throws MethodError socexpr - q
