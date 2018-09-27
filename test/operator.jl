@@ -44,38 +44,36 @@ if VERSION ≥ v"0.7-"
     Base.adjoint(t::MySumType) = t
 end
 
+_lt(x,y) = (x.col < y.col)
+function sort_expr!(x::AffExpr)
+    idx = sortperm(x.vars, lt=_lt)
+    x.vars = x.vars[idx]
+    x.coeffs = x.coeffs[idx]
+    return x
+end
 
-@testset "Operator overloads" begin
+vec_eq(x,y) = vec_eq([x;], [y;])
 
-    _lt(x,y) = (x.col < y.col)
-    function sort_expr!(x::AffExpr)
-        idx = sortperm(x.vars, lt=_lt)
-        x.vars = x.vars[idx]
-        x.coeffs = x.coeffs[idx]
-        return x
+function vec_eq(x::AbstractArray, y::AbstractArray)
+    size(x) == size(y) || return false
+    for i in 1:length(x)
+        v, w = convert(AffExpr,x[i]), convert(AffExpr,y[i])
+        sort_expr!(v)
+        sort_expr!(w)
+        string(v) == string(w) || return false
     end
+    return true
+end
 
-    vec_eq(x,y) = vec_eq([x;], [y;])
-
-    function vec_eq(x::AbstractArray, y::AbstractArray)
-        size(x) == size(y) || return false
-        for i in 1:length(x)
-            v, w = convert(AffExpr,x[i]), convert(AffExpr,y[i])
-            sort_expr!(v)
-            sort_expr!(w)
-            string(v) == string(w) || return false
-        end
-        return true
+function vec_eq(x::AbstractArray{QuadExpr}, y::AbstractArray{QuadExpr})
+    size(x) == size(y) || return false
+    for i in 1:length(x)
+        string(x[i]) == string(y[i]) || return false
     end
+    return true
+end
 
-    function vec_eq(x::AbstractArray{QuadExpr}, y::AbstractArray{QuadExpr})
-        size(x) == size(y) || return false
-        for i in 1:length(x)
-            string(x[i]) == string(y[i]) || return false
-        end
-        return true
-    end
-
+function basic_operator_overloads()
     @testset "Testing basic operator overloads" begin
         m = Model()
         @variable(m, w)
@@ -473,7 +471,9 @@ end
         @test_throws MethodError @SOCConstraint(socexpr ≥ socexpr)
         end
     end
+end
 
+function higher_level_operators()
     @testset "Higher-level operators" begin
     @testset "sum" begin
         sum_m = Model()
@@ -919,3 +919,12 @@ end
         end
     end
 end
+
+function operator_overloads()
+    @testset "Operator overloads" begin
+        basic_operator_overloads()
+        higher_level_operators()
+    end
+end
+
+operator_overloads()
