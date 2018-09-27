@@ -248,9 +248,11 @@ end
         @test string(nrm - w) == "$Vert[w,-w + 1]$Vert$sub2 - w"
         @test_throws MethodError nrm * w
         @test_throws MethodError nrm / w
-        @test string(@SOCConstraint(nrm ≤ w)) == "$Vert[w,-w + 1]$Vert$sub2 $leq w"
-        @test_throws ErrorException @SOCConstraint(nrm == w)
-        @test_throws ErrorException @SOCConstraint(nrm ≥ w)
+        @static if VERSION >= v"0.7-"
+            @test string(@SOCConstraint(nrm ≤ w)) == "$Vert[w,-w + 1]$Vert$sub2 $leq w"
+            @test_throws ErrorException @SOCConstraint(nrm == w)
+            @test_throws ErrorException @SOCConstraint(nrm ≥ w)
+        end
         # 3-3 Norm--Norm
         @test_throws MethodError nrm + nrm
         @test_throws MethodError nrm - nrm
