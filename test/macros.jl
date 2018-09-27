@@ -448,30 +448,32 @@ end
         end
     end
 
-    @testset "Curly norm parsing (deprecated)" begin
-        model = Model()
-        @variable(model, x[1:2,1:2])
-        @constraint(model, -2norm2{x[i,j], i in 1:2, j=1:2} + x[1,2] >= -1)
-        @constraint(model, -2norm2{x[i,j], i=1:2, j in 1:2; iseven(i+j)} + x[1,2] >= -1)
-        @constraint(model, 1 >= 2*norm2{x[i,1], i in 1:2})
-        @test string(model.socconstr[1]) == "2.0 $Vert[x[1,1],x[1,2],x[2,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
-        @test string(model.socconstr[2]) == "2.0 $Vert[x[1,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
-        @test string(model.socconstr[3]) == "2.0 $Vert[x[1,1],x[2,1]]$Vert$sub2 $leq 1"
-        @test_throws MethodError @constraint(model, (x[1,1]+1)*norm2{x[i,j], i=1:2, j=1:2} + x[1,2] >= -1)
-        @test_throws ErrorException @constraint(model, norm2{x[i,j], i=1:2, j=1:2} + x[1,2] >= -1)
-    end
+    @static if VERSION >= v"0.7-"
+        @testset "Curly norm parsing (deprecated)" begin
+            model = Model()
+            @variable(model, x[1:2,1:2])
+            @constraint(model, -2norm2{x[i,j], i in 1:2, j=1:2} + x[1,2] >= -1)
+            @constraint(model, -2norm2{x[i,j], i=1:2, j in 1:2; iseven(i+j)} + x[1,2] >= -1)
+            @constraint(model, 1 >= 2*norm2{x[i,1], i in 1:2})
+            @test string(model.socconstr[1]) == "2.0 $Vert[x[1,1],x[1,2],x[2,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
+            @test string(model.socconstr[2]) == "2.0 $Vert[x[1,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
+            @test string(model.socconstr[3]) == "2.0 $Vert[x[1,1],x[2,1]]$Vert$sub2 $leq 1"
+            @test_throws MethodError @constraint(model, (x[1,1]+1)*norm2{x[i,j], i=1:2, j=1:2} + x[1,2] >= -1)
+            @test_throws ErrorException @constraint(model, norm2{x[i,j], i=1:2, j=1:2} + x[1,2] >= -1)
+        end
 
-    @testset "Generator norm parsing" begin
-        model = Model()
-        @variable(model, x[1:2,1:2])
-        @constraint(model, -2norm(x[i,j] for i in 1:2, j=1:2) + x[1,2] >= -1)
-        @constraint(model, -2norm(x[i,j] for i=1:2, j in 1:2 if iseven(i+j)) + x[1,2] >= -1)
-        @constraint(model, 1 >= 2*norm(x[i,1] for i in 1:2))
-        @test string(model.socconstr[1]) == "2.0 $Vert[x[1,1],x[1,2],x[2,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
-        @test string(model.socconstr[2]) == "2.0 $Vert[x[1,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
-        @test string(model.socconstr[3]) == "2.0 $Vert[x[1,1],x[2,1]]$Vert$sub2 $leq 1"
-        @test_throws MethodError @constraint(model, (x[1,1]+1)*norm(x[i,j] for i=1:2, j=1:2) + x[1,2] >= -1)
-        @test_throws ErrorException @constraint(model, norm(x[i,j] for i=1:2, j=1:2) + x[1,2] >= -1)
+        @testset "Generator norm parsing" begin
+            model = Model()
+            @variable(model, x[1:2,1:2])
+            @constraint(model, -2norm(x[i,j] for i in 1:2, j=1:2) + x[1,2] >= -1)
+            @constraint(model, -2norm(x[i,j] for i=1:2, j in 1:2 if iseven(i+j)) + x[1,2] >= -1)
+            @constraint(model, 1 >= 2*norm(x[i,1] for i in 1:2))
+            @test string(model.socconstr[1]) == "2.0 $Vert[x[1,1],x[1,2],x[2,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
+            @test string(model.socconstr[2]) == "2.0 $Vert[x[1,1],x[2,2]]$Vert$sub2 $leq x[1,2] + 1"
+            @test string(model.socconstr[3]) == "2.0 $Vert[x[1,1],x[2,1]]$Vert$sub2 $leq 1"
+            @test_throws MethodError @constraint(model, (x[1,1]+1)*norm(x[i,j] for i=1:2, j=1:2) + x[1,2] >= -1)
+            @test_throws ErrorException @constraint(model, norm(x[i,j] for i=1:2, j=1:2) + x[1,2] >= -1)
+        end
     end
 
     @testset "Extraneous terms in QuadExpr (#535)" begin
@@ -522,11 +524,13 @@ end
             cnt += 1
             @test i == cnt
         end
-        cnt = 4
-        for i in 5:8
-            @constraint(m, norm(x[i] for i=1, j=1, k=1) <= 1)
-            cnt += 1
-            @test i == cnt
+        @static if VERSION >= v"0.7-"
+            cnt = 4
+            for i in 5:8
+                @constraint(m, norm(x[i] for i=1, j=1, k=1) <= 1)
+                cnt += 1
+                @test i == cnt
+            end
         end
         cnt = 4
         for i in 5:8
