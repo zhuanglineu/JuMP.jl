@@ -193,8 +193,8 @@ end
             # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/433979942#L832
             @test_throws ErrorException @SOCConstraint(w ≤ nrm)
             @test_throws ErrorException @SOCConstraint(w == nrm)
+            @test string(@SOCConstraint(w ≥ nrm)) == "$Vert[w,-w + 1]$Vert$sub2 $leq w"
         end
-        @test string(@SOCConstraint(w ≥ nrm)) == "$Vert[w,-w + 1]$Vert$sub2 $leq w"
         # 2-4 Variable--AffExpr
         @test string(z + aff) == "7.1 x + z + 2.5"
         @test string(z - aff) == "-7.1 x + z - 2.5"
