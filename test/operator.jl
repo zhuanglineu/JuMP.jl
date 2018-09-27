@@ -188,7 +188,11 @@ end
         @test string(w - nrm) == "-1.0 $Vert[w,-w + 1]$Vert$sub2 + w"
         @test_throws MethodError w * nrm
         @test_throws MethodError w / nrm
-        @test_throws ErrorException @SOCConstraint(w ≤ nrm)
+        if VERSION >= v"0.7-"
+            # Segfaults on Julia v0.6 on Travis when SCS is loaded.
+            # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/433979942#L832
+            @test_throws ErrorException @SOCConstraint(w ≤ nrm)
+        end
         @test_throws ErrorException @SOCConstraint(w == nrm)
         @test string(@SOCConstraint(w ≥ nrm)) == "$Vert[w,-w + 1]$Vert$sub2 $leq w"
         # 2-4 Variable--AffExpr
