@@ -188,7 +188,7 @@ end
         @test string(w - nrm) == "-1.0 $Vert[w,-w + 1]$Vert$sub2 + w"
         @test_throws MethodError w * nrm
         @test_throws MethodError w / nrm
-        if VERSION >= v"0.7-"
+        @static if VERSION >= v"0.7-"
             # Segfaults on Julia v0.6 on Travis when SCS is loaded.
             # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/433979942#L832
             @test_throws ErrorException @SOCConstraint(w ≤ nrm)
@@ -220,7 +220,7 @@ end
         @test string(y - socexpr) == "-1.5 $Vert[w,-w + 1]$Vert$sub2 + w + y + 2"
         @test_throws MethodError y * socexpr
         @test_throws MethodError y / socexpr
-        if VERSION >= v"0.7-"
+        @static if VERSION >= v"0.7-"
             # Segfaults on Julia v0.6 on Travis when SCS is loaded.
             # See https://travis-ci.org/JuliaOpt/JuMP.jl/jobs/434008037#L830
             @test_throws ErrorException @SOCConstraint(y ≤ socexpr)
