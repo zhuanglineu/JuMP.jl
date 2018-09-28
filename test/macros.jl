@@ -165,7 +165,7 @@ function reverse_direction_bounds()
     end
 end
 
-function sum()
+function sum_deprecated()
     @testset "sum{} (deprecated)" begin
         m = Model()
         @variable(m, x[1:3,1:3])
@@ -944,7 +944,7 @@ function macros()
         generator()
         constraint_basics()
         reverse_direction_bounds()
-        sum()
+        sum_deprecated()
         sum_generator()
         problem_modification()
         prebuilt_affine()
