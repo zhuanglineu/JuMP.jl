@@ -166,25 +166,27 @@ function reverse_direction_bounds()
 end
 
 function sum_deprecated()
-    @testset "sum{} (deprecated)" begin
-        m = Model()
-        @variable(m, x[1:3,1:3])
-        @variable(m, y)
-        C = [1 2 3; 4 5 6; 7 8 9]
-        @constraint(m, sum{ C[i,j]*x[i,j], i in 1:2, j = 2:3 } <= 1)
-        @test string(m.linconstr[end]) == "2 x[1,2] + 3 x[1,3] + 5 x[2,2] + 6 x[2,3] $leq 1"
-        @constraint(m, sum{ C[i,j]*x[i,j], i = 1:3, j in 1:3; i != j} == y)
-        @test string(m.linconstr[end]) == "2 x[1,2] + 3 x[1,3] + 4 x[2,1] + 6 x[2,3] + 7 x[3,1] + 8 x[3,2] - y $eq 0"
+    @static if VERSION >= v"0.7-"
+        @testset "sum{} (deprecated)" begin
+            m = Model()
+            @variable(m, x[1:3,1:3])
+            @variable(m, y)
+            C = [1 2 3; 4 5 6; 7 8 9]
+            @constraint(m, sum{ C[i,j]*x[i,j], i in 1:2, j = 2:3 } <= 1)
+            @test string(m.linconstr[end]) == "2 x[1,2] + 3 x[1,3] + 5 x[2,2] + 6 x[2,3] $leq 1"
+            @constraint(m, sum{ C[i,j]*x[i,j], i = 1:3, j in 1:3; i != j} == y)
+            @test string(m.linconstr[end]) == "2 x[1,2] + 3 x[1,3] + 4 x[2,1] + 6 x[2,3] + 7 x[3,1] + 8 x[3,2] - y $eq 0"
 
-        @constraint(m, sum{ C[i,j]*x[i,j], i = 1:3, j = 1:i} == 0);
-        @test string(m.linconstr[end]) == "x[1,1] + 4 x[2,1] + 5 x[2,2] + 7 x[3,1] + 8 x[3,2] + 9 x[3,3] $eq 0"
+            @constraint(m, sum{ C[i,j]*x[i,j], i = 1:3, j = 1:i} == 0);
+            @test string(m.linconstr[end]) == "x[1,1] + 4 x[2,1] + 5 x[2,2] + 7 x[3,1] + 8 x[3,2] + 9 x[3,3] $eq 0"
 
-        @constraint(m, sum{ 0*x[i,1], i=1:3} == 0)
-        @test string(m.linconstr[end]) == "0 $eq 0"
+            @constraint(m, sum{ 0*x[i,1], i=1:3} == 0)
+            @test string(m.linconstr[end]) == "0 $eq 0"
 
-        @constraint(m, sum{ 0*x[i,1] + y, i=1:3} == 0)
-        @test string(m.linconstr[end]) == "3 y $eq 0"
+            @constraint(m, sum{ 0*x[i,1] + y, i=1:3} == 0)
+            @test string(m.linconstr[end]) == "3 y $eq 0"
 
+        end
     end
 end
 
