@@ -506,7 +506,7 @@ end
         @test_throws ErrorException solve(modB)
     end
     end
-
+@static if VERSION >= v"0.7-"
     if length(lp_solvers) > 0
         @testset "Test NaN checking" begin
             mod = Model(solver=lp_solvers[1])
@@ -1036,4 +1036,5 @@ end
         m[:c] = @variable(m) # user purposely changes object in m[:c]
         @test isa(m[:c], JuMP.Variable)
     end
+end
 end
